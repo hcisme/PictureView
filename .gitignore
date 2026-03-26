@@ -1,0 +1,40 @@
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+[Pp]ublish/
+
+*.nupkg
+*.snupkg
+**/[Pp]ackages/
+project.lock.json
+project.assets.json
+
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.dbmdl
+*.jfm
+
+.idea/
+*.ReSharper
+*.dotCover
+
+*.log
+*.crash
+*.dmp
+TestResults/
+BenchmarkDotNet.Artifacts/
+
+# 操作系统生成的隐藏文件
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
