@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Controls;
@@ -6,11 +7,14 @@ using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using PictureView.Helpers;
 using PictureView.ViewModels;
+using Serilog;
 
 namespace PictureView.Views;
 
 public partial class DragView : UserControl
 {
+    private MainWindowViewModel? ViewModel => DataContext as MainWindowViewModel;
+
     public DragView()
     {
         InitializeComponent();
@@ -71,15 +75,18 @@ public partial class DragView : UserControl
     {
         try
         {
+            var vm = ViewModel;
+            if (vm == null) return;
+            
             var folderPaths = await DialogHelper.OpenFolderPicker(this);
-            if (folderPaths.Length > 0 && DataContext is MainWindowViewModel viewModel)
+            if (folderPaths.Length > 0)
             {
-                viewModel.AddFolders(folderPaths);
+                vm.AddFolders(folderPaths);
             }
         }
-        catch
+        catch (Exception error)
         {
-            // ignored
+            Log.Error(error, "添加图片文件夹失败");
         }
     }
 

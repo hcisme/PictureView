@@ -1,7 +1,9 @@
+using System;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using PictureView.Helpers;
 using PictureView.ViewModels;
+using Serilog;
 
 namespace PictureView.Views;
 
@@ -22,9 +24,9 @@ public partial class ContentView : UserControl
                 viewModel.AddFolders(folderPaths);
             }
         }
-        catch
+        catch(Exception error)
         {
-            // ignored
+            Log.Error(error, "添加图片文件夹失败");
         }
     }
 }

@@ -3,9 +3,11 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using PictureView.Helpers;
 using PictureView.Models;
+using PictureView.Services;
 
 namespace PictureView.ViewModels;
 
@@ -36,20 +38,35 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // 控制全屏 Loading 遮罩
     [ObservableProperty] private bool _isLoading;
+    
+    // 任务栏
+    [ObservableProperty] private string _statusMessage = "";
+    // [ObservableProperty] private bool _isLogDrawerOpen;
+    // public ObservableCollection<LogItemModel> LogHistory { get; } = [];
+
+    // 代理状态绑定
+    [ObservableProperty] private bool _enableProxy;
+    [ObservableProperty] private string _proxyHost = "127.0.0.1";
+    [ObservableProperty] private int _proxyPort = 10808;
 
     public MainWindowViewModel()
     {
         // 获取当前正在使用的缓存路径 UI显示
         CurrentCacheLocation = AppDataManager.GetActiveCacheDirectory();
+        EnableProxy = AppDataManager.CurrentConfig.EnableProxy;
+        ProxyHost = AppDataManager.CurrentConfig.ProxyHost;
+        ProxyPort = AppDataManager.CurrentConfig.ProxyPort;
 
         // 从本地 JSON 读取曾经保存的文件夹
         var savedFolders = AppDataManager.LoadFolders();
         foreach (var folder in savedFolders)
         {
-            FolderList.Add(new FolderItemModel(folder.Path));
+            FolderList.Add(new FolderItemModel(id: folder.Id, fullPath: folder.Path));
         }
 
         ApplyFilter();
+
+        LoggerManager.EventSink.OnLogEmitted += HandleNewLog;
     }
 
     public void AddFolders(string[] folderPaths)
@@ -58,14 +75,21 @@ public partial class MainWindowViewModel : ViewModelBase
         foreach (var path in folderPaths)
         {
             if (FolderList.Any(f => f.FullPath == path)) continue;
-            FolderList.Add(new FolderItemModel(path));
+            var newId = Guid.NewGuid().ToString();
+            FolderList.Add(new FolderItemModel(id: newId, fullPath: path));
             hasNew = true;
         }
 
         if (!hasNew) return;
+
         ApplyFilter();
         OnPropertyChanged(nameof(HasData));
-        var modelsToSave = FolderList.Select(f => new FolderModel { Path = f.FullPath });
+
+        var modelsToSave = FolderList.Select(f => new FolderModel(
+            id: f.Id,
+            path: f.FullPath,
+            addedAt: DateTime.Now
+        ));
         AppDataManager.SaveFolders(modelsToSave);
     }
 
@@ -118,5 +142,31 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             Debug.WriteLine(error.Message);
         }
+    }
+    
+    private void HandleNewLog(DateTime time, string level, string message)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            StatusMessage = message;
+            // LogHistory.Insert(0, new LogItemModel(time, level, message));
+            // // 限制内存，防止程序挂机几个月内存撑爆 (最多保留 200 条界面记录)
+            // if (LogHistory.Count > 200)
+            // {
+            //     LogHistory.RemoveAt(LogHistory.Count - 1);
+            // }
+        });
+    }
+
+    partial void OnEnableProxyChanged(bool value) => SaveProxyConfig();
+    partial void OnProxyHostChanged(string value) => SaveProxyConfig();
+    partial void OnProxyPortChanged(int value) => SaveProxyConfig();
+
+    private void SaveProxyConfig()
+    {
+        AppDataManager.CurrentConfig.EnableProxy = EnableProxy;
+        AppDataManager.CurrentConfig.ProxyHost = ProxyHost;
+        AppDataManager.CurrentConfig.ProxyPort = ProxyPort;
+        AppDataManager.SaveConfig();
     }
 }

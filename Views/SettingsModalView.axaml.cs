@@ -1,17 +1,22 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using PictureView.Helpers;
+using PictureView.Services;
 using PictureView.ViewModels;
+using Serilog;
 
 namespace PictureView.Views;
 
 public partial class SettingsModalView : UserControl
 {
+    private MainWindowViewModel? ViewModel => DataContext as MainWindowViewModel;
+
     public SettingsModalView()
     {
         InitializeComponent();
@@ -20,46 +25,48 @@ public partial class SettingsModalView : UserControl
     // 点击 X 按钮关闭 Modal
     private void OnCloseSettingsButtonClicked(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainWindowViewModel viewModel)
-        {
-            viewModel.IsSettingsOpen = false;
-        }
+        ViewModel?.IsSettingsOpen = false;
     }
 
     private async void OnChangeCacheLocationClicked(object? sender, RoutedEventArgs e)
     {
-        var topLevel = TopLevel.GetTopLevel(this);
-        if (topLevel == null) return;
+        var vm = ViewModel;
+        if (vm == null) return;
 
-        var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        try
         {
-            Title = "选择新的缓存数据存放目录",
-            AllowMultiple = false
-        });
+            var topLevel = TopLevel.GetTopLevel(this);
+            if (topLevel == null) return;
 
-        if (folders.Count <= 0) return;
-        var newCacheDir = folders[0].TryGetLocalPath();
-        if (string.IsNullOrEmpty(newCacheDir)) return;
+            var folders = await topLevel.StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+            {
+                Title = "选择新的缓存数据存放目录",
+                AllowMultiple = false
+            });
 
-        if (DataContext is MainWindowViewModel viewModel)
-        {
+            if (folders.Count <= 0) return;
+            var newCacheDir = folders[0].TryGetLocalPath();
+            if (string.IsNullOrEmpty(newCacheDir)) return;
+
             var oldCacheDir = AppDataManager.GetActiveCacheDirectory();
-            // 如果新老路径一样，或者新路径包含老路径（防止套娃死循环），直接拦截
             if (oldCacheDir.Equals(newCacheDir, StringComparison.OrdinalIgnoreCase) ||
-                newCacheDir.StartsWith(
-                    oldCacheDir + Path.DirectorySeparatorChar,
-                    StringComparison.OrdinalIgnoreCase
-                )
+                newCacheDir.StartsWith(oldCacheDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
                ) return;
 
-            try
-            {
-                viewModel.IsLoading = true;
-                await Task.Run(() =>
-                {
-                    Directory.CreateDirectory(newCacheDir);
+            vm.IsLoading = true;
+            Log.Information("准备将缓存目录从 {OldCacheDir} 迁移至 {NewCacheDir}", oldCacheDir, newCacheDir);
 
-                    if (Directory.Exists(oldCacheDir))
+            // 闭日志写入
+            LoggerManager.Close();
+
+            await Task.Run(() =>
+            {
+                Thread.Sleep(2000);
+                Directory.CreateDirectory(newCacheDir);
+
+                if (Directory.Exists(oldCacheDir))
+                {
+                    try
                     {
                         foreach (var dirPath in Directory.GetDirectories(oldCacheDir, "*", SearchOption.AllDirectories))
                         {
@@ -71,55 +78,80 @@ public partial class SettingsModalView : UserControl
                         {
                             var relativePath = filePath[(oldCacheDir.Length + 1)..];
                             var targetFilePath = Path.Combine(newCacheDir, relativePath);
-                            if (File.Exists(targetFilePath)) File.Delete(targetFilePath);
-                            File.Move(filePath, targetFilePath);
+                            File.Copy(filePath, targetFilePath, overwrite: true);
                         }
+
+                        // 写入配置文件
+                        AppDataManager.CurrentConfig.CacheLocation = newCacheDir;
+                        AppDataManager.SaveConfig();
+                    }
+                    catch (Exception)
+                    {
+                        if (Directory.Exists(newCacheDir))
+                        {
+                            Directory.Delete(newCacheDir, true);
+                        }
+
+                        throw;
                     }
 
-                    // 存盘
+                    try
+                    {
+                        // 尝试删掉旧缓存目录
+                        Directory.Delete(oldCacheDir, recursive: true);
+                    }
+                    catch
+                    {
+                        // ignore
+                    }
+                }
+                else
+                {
+                    // 如果原来压根没老目录，直接存新地址
                     AppDataManager.CurrentConfig.CacheLocation = newCacheDir;
                     AppDataManager.SaveConfig();
-                });
+                }
+            });
 
-                // 更新 UI 上的文本框显示
-                viewModel.CurrentCacheLocation = AppDataManager.GetActiveCacheDirectory();
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"数据搬家失败: {ex.Message}");
-            }
-            finally
-            {
-                viewModel.IsLoading = false;
-            }
+            // 重新接管日志
+            LoggerManager.Initialize();
+            vm.CurrentCacheLocation = AppDataManager.GetActiveCacheDirectory();
+            Log.Information("缓存数据已成功迁移并生效");
+        }
+        catch (Exception ex)
+        {
+            LoggerManager.Initialize();
+            Log.Error(ex, "更改缓存位置失败，已执行事务回滚，原目录未破坏。");
+        }
+        finally
+        {
+            vm.IsLoading = false;
         }
     }
 
     private void OnOpenCacheLocationClicked(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is MainWindowViewModel viewModel)
+        var vm = ViewModel;
+        if (vm == null) return;
+        var cachePath = vm.CurrentCacheLocation;
+
+        try
         {
-            var cachePath = viewModel.CurrentCacheLocation;
-
-            try
+            if (!Directory.Exists(cachePath))
             {
-                if (!Directory.Exists(cachePath))
+                Directory.CreateDirectory(cachePath);
+            }
+
+            Process.Start(new ProcessStartInfo
                 {
-                    Directory.CreateDirectory(cachePath);
+                    FileName = cachePath,
+                    UseShellExecute = true
                 }
-
-                Process.Start(new ProcessStartInfo
-                    {
-                        FileName = cachePath,
-                        UseShellExecute = true
-                    }
-                );
-            }
-            catch (Exception ex)
-            {
-                // 如果遇到权限问题等，打印日志
-                Debug.WriteLine($"无法打开目录: {ex.Message}");
-            }
+            );
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "打开缓存文件夹失败");
         }
     }
 }

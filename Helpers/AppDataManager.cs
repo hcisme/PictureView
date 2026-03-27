@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using PictureView.Models;
+using Serilog;
 
 namespace PictureView.Helpers;
 
@@ -11,7 +12,7 @@ public static class AppDataManager
 {
     private const string PictureView = "PictureView";
     private const string MasterConfigFileName = "config.json";
-    public const string FoldersFileName = "folders.json";
+    private const string FoldersFileName = "folders.json";
 
     /**
      * 永远不变的主配置目录: C:\Users\xxx\AppData\Roaming\PictureView
@@ -76,7 +77,7 @@ public static class AppDataManager
      */
     public static string GetActiveCacheDirectory()
     {
-        if (CurrentConfig.CacheLocation == "default" || string.IsNullOrWhiteSpace(CurrentConfig.CacheLocation))
+        if (string.IsNullOrWhiteSpace(CurrentConfig.CacheLocation))
         {
             return Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -86,7 +87,7 @@ public static class AppDataManager
 
         return CurrentConfig.CacheLocation;
     }
-    
+
     private static string GetFoldersJsonPath() => Path.Combine(GetActiveCacheDirectory(), FoldersFileName);
 
     public static List<FolderModel> LoadFolders()
@@ -99,8 +100,9 @@ public static class AppDataManager
             var json = File.ReadAllText(path);
             return JsonSerializer.Deserialize<List<FolderModel>>(json) ?? [];
         }
-        catch
+        catch (Exception e)
         {
+            Log.Error(e, "加载缓存中的文件夹列表失败");
             return [];
         }
     }
