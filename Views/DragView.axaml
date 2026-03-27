@@ -1,0 +1,52 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PictureView.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="PictureView.Views.DragView"
+             x:DataType="vm:MainWindowViewModel">
+    <Grid
+        IsVisible="{Binding !HasData}"
+        Background="Transparent"
+        Cursor="Hand"
+        Margin="40"
+        PointerPressed="OnDropZonePointerPressed">
+        <Rectangle
+            x:Name="DropZoneBorder"
+            StrokeThickness="2"
+            StrokeDashArray="4,4"
+            RadiusX="8"
+            RadiusY="8"
+            Fill="Transparent">
+            <Rectangle.Transitions>
+                <Transitions>
+                    <!-- 针对边框颜色的过渡 -->
+                    <BrushTransition Property="Stroke" Duration="0:0:0.3" />
+                </Transitions>
+            </Rectangle.Transitions>
+        </Rectangle>
+
+        <StackPanel
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Spacing="16">
+            <!-- 图标 -->
+            <TextBlock
+                Text="📁"
+                FontSize="64"
+                HorizontalAlignment="Center" />
+            <!-- 文字 -->
+            <TextBlock
+                Text="点击选择 或 将图片文件夹拖拽到此处"
+                FontSize="20"
+                FontWeight="SemiBold"
+                Foreground="#595959" />
+            <TextBlock
+                Text="支持添加多个文件夹"
+                FontSize="14"
+                Foreground="#8c8c8c"
+                HorizontalAlignment="Center" />
+        </StackPanel>
+    </Grid>
+</UserControl>

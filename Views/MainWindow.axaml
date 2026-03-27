@@ -3,6 +3,7 @@
         xmlns:vm="using:PictureView.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="clr-namespace:PictureView.Views"
         mc:Ignorable="d"
         d:DesignWidth="800"
         d:DesignHeight="450"
@@ -24,150 +25,43 @@
             <Setter Property="Stroke" Value="#d9d9d9" />
         </Style>
 
-        <!-- 当加上 dragover 类时的虚线框颜色 (类似 CSS 的 .dragover) -->
+        <!-- 加上 dragover 类时的虚线框颜色 -->
         <Style Selector="Rectangle#DropZoneBorder.dragover">
             <Setter Property="Stroke" Value="#0064fa" />
         </Style>
     </Window.Styles>
 
     <Grid>
-        <Grid
-            IsVisible="{Binding !HasData}"
-            Background="Transparent"
-            Cursor="Hand"
-            Margin="40"
-            PointerPressed="OnDropZonePointerPressed">
-            <Rectangle
-                x:Name="DropZoneBorder"
-                StrokeThickness="2"
-                StrokeDashArray="4,4"
-                RadiusX="8"
-                RadiusY="8"
-                Fill="Transparent">
-                <Rectangle.Transitions>
-                    <Transitions>
-                        <!-- 针对边框颜色的过渡 -->
-                        <BrushTransition Property="Stroke" Duration="0:0:0.3" />
-                    </Transitions>
-                </Rectangle.Transitions>
-            </Rectangle>
+        <Grid RowDefinitions="*, 28">
+            <Grid Grid.Row="0">
+                <views:DragView />
 
-            <StackPanel
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                Spacing="16">
-                <!-- 图标 -->
-                <TextBlock
-                    Text="📁"
-                    FontSize="64"
-                    HorizontalAlignment="Center" />
-                <!-- 文字 -->
-                <TextBlock
-                    Text="点击选择 或 将图片文件夹拖拽到此处"
-                    FontSize="20"
-                    FontWeight="SemiBold"
-                    Foreground="#595959" />
-                <TextBlock
-                    Text="支持添加多个文件夹"
-                    FontSize="14"
-                    Foreground="#8c8c8c"
-                    HorizontalAlignment="Center" />
-            </StackPanel>
+                <views:ContentView />
+            </Grid>
+
+            <Border Grid.Row="1" Background="#f3f3f3" BorderBrush="#e5e5e5" BorderThickness="0,1,0,0">
+                <views:TaskbarView />
+            </Border>
         </Grid>
 
-        <Grid IsVisible="{Binding HasData}" ColumnDefinitions="250,*">
-            <!-- 左侧：文件夹列表 -->
-            <Border Grid.Column="0" BorderBrush="#e5e5e5" BorderThickness="0,0,1,0" Background="#fafafa">
-                <Grid RowDefinitions="Auto,*">
-                    <!-- 顶部操作区 (固定不滚动) -->
-                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="12">
-                        <!-- 左侧：搜索输入框 -->
-                        <TextBox
-                            Grid.Column="0"
-                            Text="{Binding Path=SearchText, Mode=TwoWay}"
-                            Watermark="搜索文件夹..."
-                            VerticalAlignment="Center" />
+        <views:SettingsModalView />
 
-                        <!-- 右侧：添加按钮 -->
-                        <Button
-                            Grid.Column="1"
-                            Theme="{DynamicResource SolidButton}"
-                            Classes="Primary"
-                            Margin="8,0,0,0"
-                            Width="32"
-                            Height="32"
-                            VerticalAlignment="Center"
-                            HorizontalContentAlignment="Center"
-                            Click="OnAddFolderButtonClicked"
-                            ToolTip.Tip="添加新文件夹">
-                            <PathIcon
-                                Data="{DynamicResource SemiIconPlus}"
-                                Width="12"
-                                Height="12" />
-                        </Button>
-                    </Grid>
-
-                    <ListBox
-                        Grid.Row="1"
-                        ItemsSource="{Binding FilteredFolders}"
-                        SelectedItem="{Binding SelectedFolder}"
-                        Background="Transparent"
-                        Padding="8">
-                        <ListBox.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Name}"
-                                           ToolTip.Tip="{Binding FullPath}"
-                                           Padding="4,8"
-                                           FontSize="14" />
-                            </DataTemplate>
-                        </ListBox.ItemTemplate>
-                    </ListBox>
-                </Grid>
-            </Border>
-
-            <!-- 右侧：图片占位区块 -->
-            <Grid Grid.Column="1" Background="White">
-                <ScrollViewer Padding="20">
-                    <!-- ItemsControl 是用来遍历渲染列表的核心组件 -->
-                    <ItemsControl ItemsSource="{Binding DummyItems}">
-                        <!-- 容器布局：定义为水平自动换行布局 -->
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-
-                        <!-- 每一项长什么样 (类似 Vue 的 v-for 或 React 的 map) -->
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border
-                                    Width="160" Height="160"
-                                    Background="#f0f5ff"
-                                    BorderBrush="#adc6ff"
-                                    BorderThickness="1"
-                                    CornerRadius="8"
-                                    Margin="0,0,16,16"> <!-- 模拟 gap -->
-                                    <TextBlock
-                                        Text="{Binding}"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Foreground="#2f54eb"
-                                        FontWeight="SemiBold" />
-                                </Border>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </ScrollViewer>
-
-                <!-- 空状态：当选中的文件夹里没有图片，或者刚进来没选中时显示 -->
+        <Grid
+            IsVisible="{Binding IsLoading}"
+            Background="#99FFFFFF"
+            ZIndex="9999">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="16">
+                <ProgressBar
+                    IsIndeterminate="True"
+                    Width="40"
+                    Height="40"
+                    Theme="{DynamicResource ProgressRing}"
+                    Foreground="#2f54eb" />
                 <TextBlock
-                    IsVisible="{Binding !DummyItems.Count}"
-                    Text="请在左侧选择文件夹，或该文件夹中没有图片。"
-                    Foreground="#bfbfbf"
-                    FontSize="16"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center" />
-            </Grid>
+                    Text="数据正在努力搬家中，请稍候..."
+                    FontWeight="SemiBold"
+                    Foreground="#595959" />
+            </StackPanel>
         </Grid>
     </Grid>
 </Window>

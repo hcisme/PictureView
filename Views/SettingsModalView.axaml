@@ -1,0 +1,93 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PictureView.ViewModels"
+             mc:Ignorable="d"
+             d:DesignWidth="800"
+             d:DesignHeight="450"
+             x:Class="PictureView.Views.SettingsModalView"
+             x:DataType="vm:MainWindowViewModel">
+    <Grid IsVisible="{Binding IsSettingsOpen}" ZIndex="999">
+        <Border
+            Background="#66000000"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch" />
+        <Border
+            Width="650"
+            Height="450"
+            Background="White"
+            CornerRadius="8"
+            BoxShadow="0 12 48 0 #50000000"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+            <Grid RowDefinitions="Auto, *">
+                <!-- 标题栏 -->
+                <Grid Grid.Row="0" ColumnDefinitions="*, Auto" Margin="20,16,20,16">
+                    <TextBlock
+                        Grid.Column="0"
+                        Text="设置"
+                        FontSize="16"
+                        FontWeight="Bold"
+                        VerticalAlignment="Center" />
+
+                    <!-- 关闭按钮 -->
+                    <Button Grid.Column="1"
+                            Classes="Tertiary"
+                            Theme="{DynamicResource BorderlessButton}"
+                            Width="28"
+                            Height="28"
+                            MinWidth="28"
+                            MinHeight="28"
+                            Padding="0"
+                            VerticalAlignment="Center"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Click="OnCloseSettingsButtonClicked">
+                        <PathIcon
+                            Data="{DynamicResource SemiIconClose}"
+                            Width="16"
+                            Height="16"
+                            Foreground="#595959"
+                            FontSize="16"
+                            Margin="0,-2,0,0" />
+                    </Button>
+                </Grid>
+
+                <Border Grid.Row="0" VerticalAlignment="Bottom" Height="1" Background="#f0f0f0" />
+
+                <TabControl Grid.Row="1" TabStripPlacement="Left" Margin="0,16,0,0">
+                    <TabItem Header="常规">
+                        <StackPanel Margin="16,0,24,24" Spacing="16">
+                            <TextBlock Text="缓存与存储" FontWeight="Bold" Foreground="#333" />
+
+                            <Grid ColumnDefinitions="*, Auto, Auto">
+                                <TextBox
+                                    Grid.Column="0"
+                                    Watermark="{Binding CurrentCacheLocation}"
+                                    IsReadOnly="True" />
+                                <Button
+                                    Grid.Column="1"
+                                    Content="打开目录"
+                                    Margin="12,0,0,0"
+                                    Click="OnOpenCacheLocationClicked" />
+                                <Button
+                                    Grid.Column="2"
+                                    Content="更改目录"
+                                    Margin="12,0,0,0"
+                                    Click="OnChangeCacheLocationClicked" />
+                            </Grid>
+
+                            <TextBlock
+                                Text="更改缓存目录后，应用将自动迁移已有的数据配置。"
+                                FontSize="12"
+                                Classes="Primary"
+                                Theme="{DynamicResource SolidButton}"
+                                Foreground="#8c8c8c" />
+                        </StackPanel>
+                    </TabItem>
+                </TabControl>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

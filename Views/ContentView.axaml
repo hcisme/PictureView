@@ -1,0 +1,109 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:PictureView.ViewModels"
+             mc:Ignorable="d"
+             d:DesignWidth="800"
+             d:DesignHeight="450"
+             x:Class="PictureView.Views.ContentView"
+             x:DataType="vm:MainWindowViewModel">
+    <Grid IsVisible="{Binding HasData}" ColumnDefinitions="250,*">
+        <!-- 左侧：文件夹列表 -->
+        <Border Grid.Column="0" BorderBrush="#e5e5e5" BorderThickness="0,0,1,0" Background="#fafafa">
+            <Grid RowDefinitions="Auto,*">
+                <!-- 顶部操作区 (固定不滚动) -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="12">
+                    <!-- 左侧：搜索输入框 -->
+                    <TextBox
+                        Grid.Column="0"
+                        Text="{Binding Path=SearchText, Mode=TwoWay}"
+                        Watermark="搜索文件夹..."
+                        VerticalAlignment="Center" />
+
+                    <!-- 右侧：添加按钮 -->
+                    <Button
+                        Grid.Column="1"
+                        Theme="{DynamicResource SolidButton}"
+                        Classes="Primary"
+                        Margin="8,0,0,0"
+                        Width="32"
+                        Height="32"
+                        VerticalAlignment="Center"
+                        HorizontalContentAlignment="Center"
+                        Click="OnAddFolderButtonClicked"
+                        ToolTip.Tip="添加新文件夹">
+                        <PathIcon
+                            Data="{DynamicResource SemiIconPlus}"
+                            Width="12"
+                            Height="12" />
+                    </Button>
+                </Grid>
+
+                <ListBox
+                    Grid.Row="1"
+                    ItemsSource="{Binding FilteredFolders}"
+                    SelectedItem="{Binding SelectedFolder}"
+                    Background="Transparent"
+                    Padding="8">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid
+                                Background="Transparent"
+                                ToolTip.Tip="{Binding FullPath}">
+                                <TextBlock
+                                    Text="{Binding Name}"
+                                    Padding="4,8"
+                                    FontSize="14" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Grid>
+        </Border>
+
+        <!-- 右侧：图片占位区块 -->
+        <Grid Grid.Column="1" Background="White">
+            <ScrollViewer Padding="20">
+                <!-- ItemsControl 是用来遍历渲染列表的核心组件 -->
+                <ItemsControl ItemsSource="{Binding DummyItems}">
+                    <!-- 容器布局：定义为水平自动换行布局 -->
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+
+                    <!-- 每一项长什么样 (类似 Vue 的 v-for 或 React 的 map) -->
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border
+                                Width="160" Height="160"
+                                Background="#f0f5ff"
+                                BorderBrush="#adc6ff"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Margin="0,0,16,16"> <!-- 模拟 gap -->
+                                <TextBlock
+                                    Text="{Binding}"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Foreground="#2f54eb"
+                                    FontWeight="SemiBold" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- 空状态：当选中的文件夹里没有图片，或者刚进来没选中时显示 -->
+            <TextBlock
+                IsVisible="{Binding !DummyItems.Count}"
+                Text="请在左侧选择文件夹，或该文件夹中没有图片。"
+                Foreground="#bfbfbf"
+                FontSize="16"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center" />
+        </Grid>
+    </Grid>
+</UserControl>

@@ -1,9 +1,9 @@
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Data.Core;
 using Avalonia.Data.Core.Plugins;
-using System.Linq;
 using Avalonia.Markup.Xaml;
+using PictureView.Helpers;
 using PictureView.ViewModels;
 using PictureView.Views;
 
@@ -14,6 +14,8 @@ public partial class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
+
+        AppDataManager.Initialize();
     }
 
     public override void OnFrameworkInitializationCompleted()

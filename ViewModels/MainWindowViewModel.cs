@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using CommunityToolkit.Mvvm.ComponentModel;
+using PictureView.Helpers;
 using PictureView.Models;
 
 namespace PictureView.ViewModels;
@@ -28,19 +29,44 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private ObservableCollection<string> _dummyItems = [];
     private readonly string[] _allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
 
-    public void AddFolders(string[] folderPaths)
+    // 控制是否打开设置页面
+    [ObservableProperty] private bool _isSettingsOpen;
+
+    [ObservableProperty] private string _currentCacheLocation = string.Empty;
+
+    // 控制全屏 Loading 遮罩
+    [ObservableProperty] private bool _isLoading;
+
+    public MainWindowViewModel()
     {
-        foreach (var path in folderPaths)
+        // 获取当前正在使用的缓存路径 UI显示
+        CurrentCacheLocation = AppDataManager.GetActiveCacheDirectory();
+
+        // 从本地 JSON 读取曾经保存的文件夹
+        var savedFolders = AppDataManager.LoadFolders();
+        foreach (var folder in savedFolders)
         {
-            if (FolderList.All(f => f.FullPath != path))
-            {
-                FolderList.Add(new FolderItemModel(path));
-            }
+            FolderList.Add(new FolderItemModel(folder.Path));
         }
 
-        // 每次添加新文件夹后，重新应用一次过滤规则
+        ApplyFilter();
+    }
+
+    public void AddFolders(string[] folderPaths)
+    {
+        var hasNew = false;
+        foreach (var path in folderPaths)
+        {
+            if (FolderList.Any(f => f.FullPath == path)) continue;
+            FolderList.Add(new FolderItemModel(path));
+            hasNew = true;
+        }
+
+        if (!hasNew) return;
         ApplyFilter();
         OnPropertyChanged(nameof(HasData));
+        var modelsToSave = FolderList.Select(f => new FolderModel { Path = f.FullPath });
+        AppDataManager.SaveFolders(modelsToSave);
     }
 
     partial void OnSearchTextChanged(string value)
@@ -52,8 +78,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private void ApplyFilter()
     {
         // 期望展示的文件夹
-        var expectedFolders = FolderList.Where(f => 
-            string.IsNullOrWhiteSpace(SearchText) || 
+        var expectedFolders = FolderList.Where(f =>
+            string.IsNullOrWhiteSpace(SearchText) ||
             f.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase)
         ).ToList();
 
