@@ -1,8 +1,8 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             x:Class="PictureView.App"
              xmlns:local="using:PictureView"
              xmlns:semi="https://irihi.tech/semi"
+             x:Class="PictureView.App"
              RequestedThemeVariant="Default">
     <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
@@ -13,4 +13,21 @@
     <Application.Styles>
         <semi:SemiTheme Locale="zh-CN" />
     </Application.Styles>
+
+    <TrayIcon.Icons>
+        <TrayIcons>
+            <!-- 绑定你项目的真实 icon 路径，ToolTipText 是鼠标悬浮在图标上显示的文字 -->
+            <TrayIcon
+                Icon="/Assets/avalonia-logo.ico"
+                Clicked="OnTrayIconClicked">
+                <TrayIcon.Menu>
+                    <NativeMenu>
+                        <NativeMenuItem Header="打开主界面" Click="OnShowMainWindowClicked" />
+                        <NativeMenuItemSeparator />
+                        <NativeMenuItem Header="退出" Click="OnExitAppClicked" />
+                    </NativeMenu>
+                </TrayIcon.Menu>
+            </TrayIcon>
+        </TrayIcons>
+    </TrayIcon.Icons>
 </Application>

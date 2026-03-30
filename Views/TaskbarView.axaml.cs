@@ -30,7 +30,7 @@ public partial class TaskbarView : UserControl
 
     private void OnStatusLogClicked(object? sender, RoutedEventArgs e)
     {
-        var logDir = Path.Combine(AppDataManager.GetActiveCacheDirectory(), LoggerManager.LogsFolderName);
+        var logDir = Path.Combine(AppConfigManager.GetActiveCacheDirectory(), LoggerManager.LogsFolderName);
         if (!Directory.Exists(logDir)) return;
 
         var latestLogFile = Directory.GetFiles(logDir, "app_log*.txt")

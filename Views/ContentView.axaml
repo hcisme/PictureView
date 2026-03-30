@@ -1,14 +1,9 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:PictureView.ViewModels"
-             mc:Ignorable="d"
-             d:DesignWidth="800"
-             d:DesignHeight="450"
              x:Class="PictureView.Views.ContentView"
              x:DataType="vm:MainWindowViewModel">
-    <Grid IsVisible="{Binding HasData}" ColumnDefinitions="250,*">
+    <Grid ColumnDefinitions="250,*">
         <!-- 左侧：文件夹列表 -->
         <Border Grid.Column="0" BorderBrush="#e5e5e5" BorderThickness="0,0,1,0" Background="#fafafa">
             <Grid RowDefinitions="Auto,*">
@@ -48,9 +43,44 @@
                     Padding="8">
                     <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Grid
-                                Background="Transparent"
-                                ToolTip.Tip="{Binding FullPath}">
+                            <Grid Background="Transparent">
+                                <Grid.ContextFlyout>
+                                    <MenuFlyout>
+                                        <MenuItem Header="复制绝对路径" Click="OnCopyPathClicked">
+                                            <MenuItem.Icon>
+                                                <PathIcon
+                                                    Data="{DynamicResource SemiIconFile}"
+                                                    Width="16"
+                                                    Height="16" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+
+                                        <MenuItem Header="在资源管理器中打开" Click="OnOpenInExplorerClicked">
+                                            <MenuItem.Icon>
+                                                <PathIcon
+                                                    Data="{DynamicResource SemiIconFolderOpen}"
+                                                    Width="16"
+                                                    Height="16"
+                                                    Foreground="#ffd679" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+
+                                        <MenuItem Header="-" />
+
+                                        <MenuItem
+                                            Header="移除文件夹"
+                                            Click="OnRemoveFolderClicked"
+                                            Foreground="{DynamicResource SemiColorDanger}">
+                                            <MenuItem.Icon>
+                                                <PathIcon
+                                                    Data="{DynamicResource SemiIconDelete}"
+                                                    Width="16"
+                                                    Height="16" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                    </MenuFlyout>
+                                </Grid.ContextFlyout>
+
                                 <TextBlock
                                     Text="{Binding Name}"
                                     Padding="4,8"
@@ -64,46 +94,61 @@
 
         <!-- 右侧：图片占位区块 -->
         <Grid Grid.Column="1" Background="White">
-            <ScrollViewer Padding="20">
-                <!-- ItemsControl 是用来遍历渲染列表的核心组件 -->
-                <ItemsControl ItemsSource="{Binding DummyItems}">
-                    <!-- 容器布局：定义为水平自动换行布局 -->
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <WrapPanel Orientation="Horizontal" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
+            <Grid RowDefinitions="Auto,*" Background="White">
+                <Grid Grid.Row="0" Background="White" Height="60">
+                    <StackPanel
+                        Orientation="Horizontal"
+                        Spacing="10"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
+                        Margin="0,0,16,0">
+                        <Button Content="全选" />
+                        <Button Content="反选" />
+                        <Button
+                            Content="删除"
+                            Classes="Danger"
+                            Theme="{DynamicResource SolidButton}" />
+                    </StackPanel>
+                </Grid>
 
-                    <!-- 每一项长什么样 (类似 Vue 的 v-for 或 React 的 map) -->
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border
-                                Width="160" Height="160"
-                                Background="#f0f5ff"
-                                BorderBrush="#adc6ff"
-                                BorderThickness="1"
-                                CornerRadius="8"
-                                Margin="0,0,16,16"> <!-- 模拟 gap -->
-                                <TextBlock
-                                    Text="{Binding}"
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    Foreground="#2f54eb"
-                                    FontWeight="SemiBold" />
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+                <ScrollViewer Grid.Row="1" Padding="24">
+                    <ItemsControl ItemsSource="{Binding DummyItems}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
 
-            <!-- 空状态：当选中的文件夹里没有图片，或者刚进来没选中时显示 -->
-            <TextBlock
-                IsVisible="{Binding !DummyItems.Count}"
-                Text="请在左侧选择文件夹，或该文件夹中没有图片。"
-                Foreground="#bfbfbf"
-                FontSize="16"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center" />
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border
+                                    Width="160" Height="160"
+                                    Background="#f0f5ff"
+                                    BorderBrush="#adc6ff"
+                                    BorderThickness="1"
+                                    CornerRadius="8"
+                                    Margin="0,0,16,16"> <!-- 模拟 gap -->
+                                    <TextBlock
+                                        Text="{Binding}"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Foreground="#2f54eb"
+                                        FontWeight="SemiBold" />
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+
+            <Grid Background="White" IsVisible="{Binding !DummyItems.Count}">
+                <TextBlock
+                    Text="请在左侧选择文件夹，或该文件夹中没有图片。"
+                    Foreground="#bfbfbf"
+                    FontSize="16"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center" />
+            </Grid>
         </Grid>
     </Grid>
 </UserControl>

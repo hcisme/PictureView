@@ -45,83 +45,102 @@ public partial class SettingsModalView : UserControl
             });
 
             if (folders.Count <= 0) return;
-            var newCacheDir = folders[0].TryGetLocalPath();
-            if (string.IsNullOrEmpty(newCacheDir)) return;
 
-            var oldCacheDir = AppDataManager.GetActiveCacheDirectory();
+            var selectedBaseDir = folders[0].TryGetLocalPath();
+            if (string.IsNullOrEmpty(selectedBaseDir)) return;
+
+            // 在用户选择的目录下，强制追加一个专属的缓存文件夹名
+            var newCacheDir = Path.Combine(selectedBaseDir, Constant.AppName);
+            var oldCacheDir = AppConfigManager.GetActiveCacheDirectory();
+
+            // 防止目标等于源，或目标是源的子目录（防止无限递归套娃）
             if (oldCacheDir.Equals(newCacheDir, StringComparison.OrdinalIgnoreCase) ||
-                newCacheDir.StartsWith(oldCacheDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-               ) return;
+                newCacheDir.StartsWith(oldCacheDir + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
 
             vm.IsLoading = true;
             Log.Information("准备将缓存目录从 {OldCacheDir} 迁移至 {NewCacheDir}", oldCacheDir, newCacheDir);
-
-            // 闭日志写入
             LoggerManager.Close();
 
             await Task.Run(() =>
             {
                 Thread.Sleep(2000);
-                Directory.CreateDirectory(newCacheDir);
+                // 标记是否是本次操作新建的目录（用于安全回滚）
+                var isNewDirCreatedByUs = false;
 
-                if (Directory.Exists(oldCacheDir))
+                try
                 {
-                    try
+                    if (!Directory.Exists(newCacheDir))
                     {
-                        foreach (var dirPath in Directory.GetDirectories(oldCacheDir, "*", SearchOption.AllDirectories))
+                        Directory.CreateDirectory(newCacheDir);
+                        isNewDirCreatedByUs = true;
+                    }
+
+                    if (Directory.Exists(oldCacheDir))
+                    {
+                        // 先把空文件夹 骨架建好
+                        foreach (var dirPath in Directory.EnumerateDirectories(oldCacheDir, "*",
+                                     SearchOption.AllDirectories))
                         {
-                            var relativePath = dirPath[(oldCacheDir.Length + 1)..];
+                            var relativePath = Path.GetRelativePath(oldCacheDir, dirPath);
                             Directory.CreateDirectory(Path.Combine(newCacheDir, relativePath));
                         }
 
-                        foreach (var filePath in Directory.GetFiles(oldCacheDir, "*.*", SearchOption.AllDirectories))
+                        foreach (var filePath in Directory.EnumerateFiles(oldCacheDir, "*.*",
+                                     SearchOption.AllDirectories))
                         {
-                            var relativePath = filePath[(oldCacheDir.Length + 1)..];
+                            var relativePath = Path.GetRelativePath(oldCacheDir, filePath);
                             var targetFilePath = Path.Combine(newCacheDir, relativePath);
                             File.Copy(filePath, targetFilePath, overwrite: true);
                         }
-
-                        // 写入配置文件
-                        AppDataManager.CurrentConfig.CacheLocation = newCacheDir;
-                        AppDataManager.SaveConfig();
                     }
-                    catch (Exception)
-                    {
-                        if (Directory.Exists(newCacheDir))
-                        {
-                            Directory.Delete(newCacheDir, true);
-                        }
 
-                        throw;
-                    }
+                    // 写入配置文件
+                    AppConfigManager.CurrentConfig.CacheLocation = newCacheDir;
+                    AppConfigManager.SaveConfig();
 
                     try
                     {
                         // 尝试删掉旧缓存目录
-                        Directory.Delete(oldCacheDir, recursive: true);
+                        if (Directory.Exists(oldCacheDir))
+                        {
+                            Directory.Delete(oldCacheDir, recursive: true);
+                        }
                     }
                     catch
                     {
                         // ignore
                     }
                 }
-                else
+                catch (Exception)
                 {
-                    // 如果原来压根没老目录，直接存新地址
-                    AppDataManager.CurrentConfig.CacheLocation = newCacheDir;
-                    AppDataManager.SaveConfig();
+                    if (isNewDirCreatedByUs && Directory.Exists(newCacheDir))
+                    {
+                        try
+                        {
+                            Directory.Delete(newCacheDir, true);
+                        }
+                        catch
+                        {
+                            /* ignore */
+                        }
+                    }
+
+                    throw;
                 }
             });
 
             // 重新接管日志
             LoggerManager.Initialize();
-            vm.CurrentCacheLocation = AppDataManager.GetActiveCacheDirectory();
+            vm.CurrentCacheLocation = AppConfigManager.GetActiveCacheDirectory();
             Log.Information("缓存数据已成功迁移并生效");
         }
         catch (Exception ex)
         {
             LoggerManager.Initialize();
-            Log.Error(ex, "更改缓存位置失败，已执行事务回滚，原目录未破坏。");
+            Log.Error(ex, "更改缓存位置失败。");
         }
         finally
         {

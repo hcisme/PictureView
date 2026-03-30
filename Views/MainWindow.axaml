@@ -1,42 +1,20 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:PictureView.ViewModels"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:views="clr-namespace:PictureView.Views"
-        mc:Ignorable="d"
-        d:DesignWidth="800"
-        d:DesignHeight="450"
+        xmlns:views="using:PictureView.Views"
         x:Class="PictureView.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
         Title="PictureView"
+        MinWidth="800" 
+        MinHeight="600"
+        WindowStartupLocation="CenterScreen"
         DragDrop.AllowDrop="True">
-
-    <Design.DataContext>
-        <!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
-        <vm:MainWindowViewModel />
-    </Design.DataContext>
-
-    <Window.Styles>
-        <!-- 默认状态的虚线框颜色 -->
-        <Style Selector="Rectangle#DropZoneBorder">
-            <Setter Property="Stroke" Value="#d9d9d9" />
-        </Style>
-
-        <!-- 加上 dragover 类时的虚线框颜色 -->
-        <Style Selector="Rectangle#DropZoneBorder.dragover">
-            <Setter Property="Stroke" Value="#0064fa" />
-        </Style>
-    </Window.Styles>
-
     <Grid>
         <Grid RowDefinitions="*, 28">
             <Grid Grid.Row="0">
-                <views:DragView />
-
-                <views:ContentView />
+                <views:DragView IsVisible="{Binding !HasData}" />
+                <views:ContentView IsVisible="{Binding HasData}" />
             </Grid>
 
             <Border Grid.Row="1" Background="#f3f3f3" BorderBrush="#e5e5e5" BorderThickness="0,1,0,0">
@@ -44,7 +22,7 @@
             </Border>
         </Grid>
 
-        <views:SettingsModalView />
+        <views:SettingsModalView IsVisible="{Binding IsSettingsOpen}" ZIndex="999" />
 
         <Grid
             IsVisible="{Binding IsLoading}"

@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using PictureView.Helpers;
 using PictureView.Models;
 using PictureView.Services;
+using Serilog;
 
 namespace PictureView.ViewModels;
 
@@ -38,7 +39,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // 控制全屏 Loading 遮罩
     [ObservableProperty] private bool _isLoading;
-    
+
     // 任务栏
     [ObservableProperty] private string _statusMessage = "";
     // [ObservableProperty] private bool _isLogDrawerOpen;
@@ -52,13 +53,13 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel()
     {
         // 获取当前正在使用的缓存路径 UI显示
-        CurrentCacheLocation = AppDataManager.GetActiveCacheDirectory();
-        EnableProxy = AppDataManager.CurrentConfig.EnableProxy;
-        ProxyHost = AppDataManager.CurrentConfig.ProxyHost;
-        ProxyPort = AppDataManager.CurrentConfig.ProxyPort;
+        CurrentCacheLocation = AppConfigManager.GetActiveCacheDirectory();
+        EnableProxy = AppConfigManager.CurrentConfig.EnableProxy;
+        ProxyHost = AppConfigManager.CurrentConfig.ProxyHost;
+        ProxyPort = AppConfigManager.CurrentConfig.ProxyPort;
 
         // 从本地 JSON 读取曾经保存的文件夹
-        var savedFolders = AppDataManager.LoadFolders();
+        var savedFolders = FolderDataManager.LoadFolders();
         foreach (var folder in savedFolders)
         {
             FolderList.Add(new FolderItemModel(id: folder.Id, fullPath: folder.Path));
@@ -90,7 +91,7 @@ public partial class MainWindowViewModel : ViewModelBase
             path: f.FullPath,
             addedAt: DateTime.Now
         ));
-        AppDataManager.SaveFolders(modelsToSave);
+        FolderDataManager.SaveFolders(modelsToSave);
     }
 
     partial void OnSearchTextChanged(string value)
@@ -143,7 +144,7 @@ public partial class MainWindowViewModel : ViewModelBase
             Debug.WriteLine(error.Message);
         }
     }
-    
+
     private void HandleNewLog(DateTime time, string level, string message)
     {
         Dispatcher.UIThread.Post(() =>
@@ -164,9 +165,31 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void SaveProxyConfig()
     {
-        AppDataManager.CurrentConfig.EnableProxy = EnableProxy;
-        AppDataManager.CurrentConfig.ProxyHost = ProxyHost;
-        AppDataManager.CurrentConfig.ProxyPort = ProxyPort;
-        AppDataManager.SaveConfig();
+        AppConfigManager.CurrentConfig.EnableProxy = EnableProxy;
+        AppConfigManager.CurrentConfig.ProxyHost = ProxyHost;
+        AppConfigManager.CurrentConfig.ProxyPort = ProxyPort;
+        AppConfigManager.SaveConfig();
+    }
+
+    public void RemoveFolder(FolderItemModel folderToRemove)
+    {
+        if (SelectedFolder == folderToRemove)
+        {
+            SelectedFolder = null;
+        }
+        FolderList.Remove(folderToRemove);
+        ApplyFilter();
+        OnPropertyChanged(nameof(HasData));
+
+        var modelsToSave = FolderList.Select(f =>
+            new FolderModel(
+                id: f.Id,
+                path: f.FullPath,
+                addedAt: DateTime.Now
+            )
+        ).ToList();
+
+        FolderDataManager.SaveFolders(modelsToSave);
+        Log.Information("已移除文件夹: {Path}", folderToRemove.FullPath);
     }
 }

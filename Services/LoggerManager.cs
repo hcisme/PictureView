@@ -31,7 +31,7 @@ public static class LoggerManager
     public static void Initialize()
     {
         // 获取当前缓存目录，拼出 logs 文件夹
-        var logDir = Path.Combine(AppDataManager.GetActiveCacheDirectory(), LogsFolderName);
+        var logDir = Path.Combine(AppConfigManager.GetActiveCacheDirectory(), LogsFolderName);
         var logFilePath = Path.Combine(logDir, LogsFileName);
 
         Log.Logger = new LoggerConfiguration()
