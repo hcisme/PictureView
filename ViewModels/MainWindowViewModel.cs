@@ -1,8 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using PictureView.Helpers;
@@ -28,10 +29,6 @@ public partial class MainWindowViewModel : ViewModelBase
     // 选中的文件夹
     [ObservableProperty] private FolderItemModel? _selectedFolder;
 
-    // 右侧的列表
-    [ObservableProperty] private ObservableCollection<string> _dummyItems = [];
-    private readonly string[] _allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
-
     // 控制是否打开设置页面
     [ObservableProperty] private bool _isSettingsOpen;
 
@@ -50,24 +47,56 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private string _proxyHost = "127.0.0.1";
     [ObservableProperty] private int _proxyPort = 10808;
 
+    // 右侧的列表 以及操作按钮相关
+    private readonly Dictionary<string, List<ImageItemViewModel>> _folderImageCache = new();
+    public ObservableCollection<ImageItemViewModel> ImageItems { get; } = [];
+    public bool HasSelection => ImageItems.Any(img => img.IsSelected);
+    [ObservableProperty] private bool _showRealImages;
+
+    private readonly string[] _allowedExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+
     public MainWindowViewModel()
     {
-        // 获取当前正在使用的缓存路径 UI显示
+        // 获取 设置 相关对象信息
         CurrentCacheLocation = AppConfigManager.GetActiveCacheDirectory();
         EnableProxy = AppConfigManager.CurrentConfig.EnableProxy;
         ProxyHost = AppConfigManager.CurrentConfig.ProxyHost;
         ProxyPort = AppConfigManager.CurrentConfig.ProxyPort;
+    }
 
-        // 从本地 JSON 读取曾经保存的文件夹
-        var savedFolders = FolderDataManager.LoadFolders();
-        foreach (var folder in savedFolders)
-        {
-            FolderList.Add(new FolderItemModel(id: folder.Id, fullPath: folder.Path));
-        }
-
-        ApplyFilter();
-
+    public override async Task OnAppearingAsync()
+    {
         LoggerManager.EventSink.OnLogEmitted += HandleNewLog;
+        await AsyncReadFolderList();
+    }
+
+    public override Task OnDisappearingAsync()
+    {
+        LoggerManager.EventSink.OnLogEmitted -= HandleNewLog;
+        return Task.CompletedTask;
+    }
+
+    private async Task AsyncReadFolderList()
+    {
+        try
+        {
+            var savedFolders = await Task.Run(FolderDataManager.LoadFolders);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                FolderList.Clear();
+                foreach (var folder in savedFolders)
+                {
+                    FolderList.Add(new FolderItemModel(id: folder.Id, fullPath: folder.Path));
+                }
+
+                ApplyFilter();
+                OnPropertyChanged(nameof(HasData));
+            });
+        }
+        catch (Exception error)
+        {
+            Log.Error(error, "初始化加载文件夹列表时发生错误。");
+        }
     }
 
     public void AddFolders(string[] folderPaths)
@@ -90,7 +119,7 @@ public partial class MainWindowViewModel : ViewModelBase
             id: f.Id,
             path: f.FullPath,
             addedAt: DateTime.Now
-        ));
+        )).ToList();
         FolderDataManager.SaveFolders(modelsToSave);
     }
 
@@ -126,22 +155,50 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSelectedFolderChanged(FolderItemModel? value)
     {
-        DummyItems.Clear();
+        ImageItems.Clear();
         if (value == null) return;
 
         try
         {
-            var fileCount = Directory.EnumerateFiles(value.FullPath)
-                .Count(f => Enumerable.Contains(_allowedExtensions, Path.GetExtension(f).ToLower()));
+            var folderId = value.Id;
 
-            for (var i = 0; i < fileCount; i++)
+            if (_folderImageCache.TryGetValue(folderId, out var cachedImages))
             {
-                DummyItems.Add($"占位图 {i + 1}");
+                foreach (var img in cachedImages)
+                {
+                    if (ShowRealImages) _ = img.LoadThumbnailAsync();
+                    ImageItems.Add(img);
+                }
+            }
+            else
+            {
+                var files = Directory.EnumerateFiles(value.FullPath)
+                    .Where(file =>
+                        {
+                            if (!_allowedExtensions.Contains(Path.GetExtension(file).ToLower()))
+                                return false;
+
+                            var attributes = File.GetAttributes(file);
+                            return (attributes & FileAttributes.Hidden) != FileAttributes.Hidden;
+                        }
+                    );
+                foreach (var file in files)
+                {
+                    var item = new ImageItemViewModel(file, OnAnyImageSelectionChanged);
+                    if (ShowRealImages) _ = item.LoadThumbnailAsync();
+                    ImageItems.Add(item);
+                }
+
+                _folderImageCache[folderId] = ImageItems.ToList();
             }
         }
         catch (Exception error)
         {
-            Debug.WriteLine(error.Message);
+            Log.Error(error, "在文件夹内查找文件失败");
+        }
+        finally
+        {
+            OnPropertyChanged(nameof(HasSelection));
         }
     }
 
@@ -177,7 +234,9 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             SelectedFolder = null;
         }
+
         FolderList.Remove(folderToRemove);
+        _folderImageCache.Remove(folderToRemove.Id);
         ApplyFilter();
         OnPropertyChanged(nameof(HasData));
 
@@ -191,5 +250,75 @@ public partial class MainWindowViewModel : ViewModelBase
 
         FolderDataManager.SaveFolders(modelsToSave);
         Log.Information("已移除文件夹: {Path}", folderToRemove.FullPath);
+    }
+
+    // 全选
+    public void SelectAll()
+    {
+        foreach (var item in ImageItems) item.IsSelected = true;
+        OnPropertyChanged(nameof(HasSelection));
+    }
+
+    // 反选
+    public void InvertSelection()
+    {
+        foreach (var item in ImageItems) item.IsSelected = !item.IsSelected;
+        OnPropertyChanged(nameof(HasSelection));
+    }
+
+    // 伪删除
+    public void DeleteSelected()
+    {
+        var itemsToRemove = ImageItems.Where(x => x.IsSelected).ToList();
+        var currentFolderId = SelectedFolder?.Id;
+
+        foreach (var item in itemsToRemove)
+        {
+            try
+            {
+                if (File.Exists(item.FilePath))
+                {
+                    var attributes = File.GetAttributes(item.FilePath);
+                    File.SetAttributes(item.FilePath, attributes | FileAttributes.Hidden);
+                }
+
+                ImageItems.Remove(item);
+
+                if (currentFolderId != null && _folderImageCache.TryGetValue(currentFolderId, out var cacheList))
+                {
+                    cacheList.Remove(item);
+                }
+            }
+            catch
+            {
+                /* ignore */
+            }
+        }
+
+        OnPropertyChanged(nameof(HasSelection));
+    }
+
+    // 导出
+    public void ExportSelected()
+    {
+        var exportList = ImageItems.Where(x => x.IsSelected).Select(x => x.FilePath).ToList();
+    }
+
+    // F1 切换显示模式
+    public void ToggleDisplayMode()
+    {
+        ShowRealImages = !ShowRealImages;
+
+        if (!ShowRealImages) return;
+
+        foreach (var item in ImageItems)
+        {
+            _ = item.LoadThumbnailAsync();
+        }
+    }
+
+    private void OnAnyImageSelectionChanged()
+    {
+        OnPropertyChanged(nameof(HasSelection));
     }
 }

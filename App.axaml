@@ -16,7 +16,6 @@
 
     <TrayIcon.Icons>
         <TrayIcons>
-            <!-- 绑定你项目的真实 icon 路径，ToolTipText 是鼠标悬浮在图标上显示的文字 -->
             <TrayIcon
                 Icon="/Assets/avalonia-logo.ico"
                 Clicked="OnTrayIconClicked">

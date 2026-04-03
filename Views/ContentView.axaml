@@ -2,7 +2,17 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="using:PictureView.ViewModels"
              x:Class="PictureView.Views.ContentView"
-             x:DataType="vm:MainWindowViewModel">
+             x:DataType="vm:MainWindowViewModel"
+             x:Name="RootControl">
+
+    <UserControl.Styles>
+        <Style Selector="Border.selected">
+            <Setter Property="BorderBrush" Value="#2f54eb" />
+            <Setter Property="BorderThickness" Value="2" />
+            <Setter Property="Background" Value="#e6f4ff" />
+        </Style>
+    </UserControl.Styles>
+
     <Grid ColumnDefinitions="250,*">
         <!-- 左侧：文件夹列表 -->
         <Border Grid.Column="0" BorderBrush="#e5e5e5" BorderThickness="0,0,1,0" Background="#fafafa">
@@ -102,17 +112,27 @@
                         HorizontalAlignment="Right"
                         VerticalAlignment="Center"
                         Margin="0,0,16,0">
-                        <Button Content="全选" />
-                        <Button Content="反选" />
+                        <Button
+                            IsVisible="False"
+                            HotKey="F1"
+                            Command="{Binding ToggleDisplayMode}" />
+                        <Button Content="全选" Command="{Binding SelectAll}" />
+                        <Button Content="反选" Command="{Binding InvertSelection}" />
+                        <Button
+                            Content="导出"
+                            Classes="Primary" Theme="{DynamicResource SolidButton}"
+                            IsEnabled="{Binding HasSelection}"
+                            Command="{Binding ExportSelected}" />
                         <Button
                             Content="删除"
-                            Classes="Danger"
-                            Theme="{DynamicResource SolidButton}" />
+                            Classes="Danger" Theme="{DynamicResource SolidButton}"
+                            IsEnabled="{Binding HasSelection}"
+                            Command="{Binding DeleteSelected}" />
                     </StackPanel>
                 </Grid>
 
                 <ScrollViewer Grid.Row="1" Padding="24">
-                    <ItemsControl ItemsSource="{Binding DummyItems}">
+                    <ItemsControl ItemsSource="{Binding ImageItems}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel Orientation="Horizontal" />
@@ -122,18 +142,37 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
                                 <Border
+                                    Classes.selected="{Binding IsSelected}"
                                     Width="160" Height="160"
                                     Background="#f0f5ff"
                                     BorderBrush="#adc6ff"
                                     BorderThickness="1"
                                     CornerRadius="8"
-                                    Margin="0,0,16,16"> <!-- 模拟 gap -->
-                                    <TextBlock
-                                        Text="{Binding}"
-                                        HorizontalAlignment="Center"
-                                        VerticalAlignment="Center"
-                                        Foreground="#2f54eb"
-                                        FontWeight="SemiBold" />
+                                    Margin="0,0,16,16"
+                                    ClipToBounds="True">
+                                    <Grid>
+                                        <TextBlock
+                                            Text="{Binding Name}"
+                                            IsVisible="{Binding !#RootControl.((vm:MainWindowViewModel)DataContext).ShowRealImages}"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            Foreground="#2f54eb"
+                                            FontWeight="SemiBold" />
+                                        <Border
+                                            IsVisible="{Binding Path=#RootControl.((vm:MainWindowViewModel)DataContext).ShowRealImages, FallbackValue=False}"
+                                            Background="#333">
+                                            <Image
+                                                Stretch="UniformToFill"
+                                                HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Stretch"
+                                                Source="{Binding ThumbnailImage}" />
+                                        </Border>
+                                        <CheckBox
+                                            IsChecked="{Binding IsSelected}"
+                                            HorizontalAlignment="Left"
+                                            VerticalAlignment="Top"
+                                            Margin="8" />
+                                    </Grid>
                                 </Border>
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
@@ -141,7 +180,7 @@
                 </ScrollViewer>
             </Grid>
 
-            <Grid Background="White" IsVisible="{Binding !DummyItems.Count}">
+            <Grid Background="White" IsVisible="{Binding !ImageItems.Count}">
                 <TextBlock
                     Text="请在左侧选择文件夹，或该文件夹中没有图片。"
                     Foreground="#bfbfbf"
